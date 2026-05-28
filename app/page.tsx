@@ -153,13 +153,19 @@ export default function Home() {
   const [isClaimingNFT, setIsClaimingNFT] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showConfirmModal, setShowConfirmModal] = useState<null | "main" | "nft">(null);
+  const [showConfirmModal, setShowConfirmModal] = useState<
+    null | "main" | "nft"
+  >(null);
 
-  const [mainClaimData, setMainClaimData] = useState<MainClaimData | null>(null);
+  const [mainClaimData, setMainClaimData] = useState<MainClaimData | null>(
+    null
+  );
   const [nftClaimData, setNftClaimData] = useState<NFTClaimData | null>(null);
 
   const [searchedTokenId, setSearchedTokenId] = useState("");
-  const [searchedTokenStatus, setSearchedTokenStatus] = useState<string | null>(null);
+  const [searchedTokenStatus, setSearchedTokenStatus] = useState<string | null>(
+    null
+  );
   const [isSearchingToken, setIsSearchingToken] = useState(false);
 
   const getProvider = () => {
@@ -468,10 +474,13 @@ export default function Home() {
       if (!contract) throw new Error("Leaderboard contract unavailable");
 
       const tx = await contract.claim();
+
+      setShowConfirmModal(null);
+      setSuccessMessage("Claim submitted. Waiting for confirmation...");
+
       await tx.wait();
 
       setSuccessMessage("Main claim successful. TBAG secured.");
-      setShowConfirmModal(null);
 
       await loadAllClaimData(walletAddress);
     } catch (err: any) {
@@ -506,10 +515,13 @@ export default function Home() {
       if (!contract) throw new Error("NFT claim contract unavailable");
 
       const tx = await contract.claim(nftClaimData.eligibleTokenIds);
+
+      setShowConfirmModal(null);
+      setSuccessMessage("Claim submitted. Waiting for confirmation...");
+
       await tx.wait();
 
       setSuccessMessage("Baggiez claim successful. TBAG secured.");
-      setShowConfirmModal(null);
 
       await loadAllClaimData(walletAddress);
     } catch (err: any) {
@@ -662,7 +674,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>{APP_NAME}</title>
+        <title>TBAG Claims</title>
       </Head>
 
       <div className="page-root">
@@ -784,7 +796,7 @@ export default function Home() {
               </div>
 
               <p className="hint">
-                Main leaderboard claims vest linearly over 90 days and can be claimed once every 24 hours.
+                Main claims vest linearly over 90 days and can be claimed once every 24 hours.
               </p>
             </>
           )}
@@ -887,6 +899,9 @@ export default function Home() {
               <strong>Main Claims:</strong> 90-day linear vesting, claimable once every 24 hours.
             </p>
             <p>
+              <strong>Note:</strong> Main Claims include all &quot;Double Bagz&quot; $TBAG rewards too.
+            </p>
+            <p>
               <strong>Baggiez SE:</strong> NFT IDs {SE_START_ID}–{SE_END_ID} receive {SE_REWARD_LABEL} TBAG total.
             </p>
             <p>
@@ -911,7 +926,7 @@ export default function Home() {
                 {showConfirmModal === "main"
                   ? `You are about to claim ${formatTokenAmount(
                       mainClaimData?.claimableAmount
-                    )} TBAG from your vested leaderboard allocation.`
+                    )} TBAG from your vested main allocation.`
                   : `You are about to claim ${formatTokenAmount(
                       nftClaimData?.claimableAmount
                     )} TBAG for all currently eligible Baggiez NFTs in your wallet.`}
@@ -933,7 +948,7 @@ export default function Home() {
                   onClick={showConfirmModal === "main" ? handleMainClaim : handleNFTClaim}
                   disabled={isClaimingMain || isClaimingNFT}
                 >
-                  {isClaimingMain || isClaimingNFT ? "Claiming..." : "Confirm Claim"}
+                  {isClaimingMain || isClaimingNFT ? "Submitting..." : "Confirm Claim"}
                 </button>
               </div>
             </div>
