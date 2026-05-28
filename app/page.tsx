@@ -31,6 +31,10 @@ const NFT_CLAIM_ADDRESS: string = String(
   process.env.NEXT_PUBLIC_NFT_CLAIM_ADDRESS || ""
 );
 
+const ALCHEMY_API_KEY: string = String(
+  process.env.NEXT_PUBLIC_ALCHEMY_API_KEY || ""
+);
+
 const SE_START_ID = 1;
 const SE_END_ID = 333;
 const STANDARD_START_ID = 334;
@@ -59,11 +63,6 @@ const NFT_CLAIM_ABI = [
   "function rewardForToken(uint256 tokenId) view returns (uint256)",
   "function getClaimable(address user, uint256[] tokenIds) view returns (uint256 amount, uint256 eligibleCount, uint256[] eligibleIds)",
   "function claim(uint256[] tokenIds)",
-];
-
-const ERC721_ENUMERABLE_ABI = [
-  "function balanceOf(address owner) view returns (uint256)",
-  "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
 ];
 
 declare global {
@@ -349,25 +348,58 @@ export default function Home() {
   };
 
   const loadOwnedNFTIds = async (address: string): Promise<number[]> => {
-    const provider = getProvider();
-    if (!provider) return [];
+    if (!ALCHEMY_API_KEY) {
+      throw new Error("Missing NEXT_PUBLIC_ALCHEMY_API_KEY");
+    }
 
-    const nft = new ethers.Contract(
-      String(NFT_COLLECTION_ADDRESS),
-      ERC721_ENUMERABLE_ABI,
-      provider
-    );
+    const allTokenIds: number[] = [];
+    let pageKey: string | undefined = undefined;
 
-    const balanceBn = await nft.balanceOf(address);
-    const balance = Number(balanceBn);
+    do {
+      const pageKeyParam = pageKey ? `&pageKey=${pageKey}` : "";
 
-    const calls = Array.from({ length: balance }, (_, index) =>
-      nft.tokenOfOwnerByIndex(address, index)
-    );
+      const url =
+        `https://linea-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner` +
+        `?owner=${address}` +
+        `&contractAddresses[]=${NFT_COLLECTION_ADDRESS}` +
+        `&withMetadata=false` +
+        `&pageSize=100` +
+        pageKeyParam;
 
-    const ids = await Promise.all(calls);
+      const res = await fetch(url);
 
-    return ids.map((id) => Number(id)).sort((a, b) => a - b);
+      if (!res.ok) {
+        throw new Error(`Alchemy NFT API error: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      const ownedNfts = Array.isArray(data.ownedNfts) ? data.ownedNfts : [];
+
+      const ids = ownedNfts
+        .map((nft: any) => {
+          const rawTokenId =
+            nft.tokenId ??
+            nft.id?.tokenId ??
+            nft.tokenIdHex ??
+            nft.id?.tokenIdHex;
+
+          if (!rawTokenId) return null;
+
+          if (typeof rawTokenId === "string" && rawTokenId.startsWith("0x")) {
+            return parseInt(rawTokenId, 16);
+          }
+
+          return Number(rawTokenId);
+        })
+        .filter((id: number | null) => id !== null && Number.isFinite(id));
+
+      allTokenIds.push(...(ids as number[]));
+
+      pageKey = data.pageKey;
+    } while (pageKey);
+
+    return Array.from(new Set(allTokenIds)).sort((a, b) => a - b);
   };
 
   const loadNFTClaimData = async (address: string) => {
@@ -422,7 +454,7 @@ export default function Home() {
       ]);
     } catch (err) {
       console.error("Error loading claim data:", err);
-      setErrorMessage("Error loading claim data. Check network and contract addresses.");
+      setErrorMessage("Error loading claim data. Check network, contract addresses, and Alchemy API key.");
     } finally {
       setIsLoadingData(false);
     }
