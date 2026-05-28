@@ -4,35 +4,33 @@ import React, { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { ethers } from "ethers";
 
-// --------------------------------------------------
-// Config
-// --------------------------------------------------
-
 const APP_NAME = "TBAG Claims";
 
-// Linea Mainnet
 const TARGET_CHAIN_ID_DEC = 59144;
 const TARGET_CHAIN_ID_HEX = "0xe708";
 const TARGET_NETWORK_LABEL = "Linea";
 
 const TBAG_DECIMALS = 18;
 
-// Production addresses
-const TBAG_TOKEN_ADDRESS =
-  process.env.NEXT_PUBLIC_TBAG_TOKEN_ADDRESS ??
-  "0x67454b41baf8d29751cc64f60e3c62b5634567a4";
+const TBAG_TOKEN_ADDRESS: string = String(
+  process.env.NEXT_PUBLIC_TBAG_TOKEN_ADDRESS ||
+    "0x67454b41baf8d29751cc64f60e3c62b5634567a4"
+);
 
-const NFT_COLLECTION_ADDRESS =
-  process.env.NEXT_PUBLIC_BAGGIEZ_NFT_ADDRESS ??
-  "0x0e1f9edf5a647b6cd305cec707e050ec41395d85";
+const NFT_COLLECTION_ADDRESS: string = String(
+  process.env.NEXT_PUBLIC_BAGGIEZ_NFT_ADDRESS ||
+    "0x0e1f9edf5a647b6cd305cec707e050ec41395d85"
+);
 
-// Deploy these, then set env vars in Vercel
-const LEADERBOARD_CLAIM_ADDRESS =
-  process.env.NEXT_PUBLIC_LEADERBOARD_CLAIM_ADDRESS ?? "0xA1A11707f1D768962CF04057BAC7a590e2eE9ce6";
+const LEADERBOARD_CLAIM_ADDRESS: string = String(
+  process.env.NEXT_PUBLIC_LEADERBOARD_CLAIM_ADDRESS ||
+    "0xA1A11707f1D768962CF04057BAC7a590e2eE9ce6"
+);
 
-const NFT_CLAIM_ADDRESS = process.env.NEXT_PUBLIC_NFT_CLAIM_ADDRESS ?? "";
+const NFT_CLAIM_ADDRESS: string = String(
+  process.env.NEXT_PUBLIC_NFT_CLAIM_ADDRESS || ""
+);
 
-// NFT reward ranges
 const SE_START_ID = 1;
 const SE_END_ID = 333;
 const STANDARD_START_ID = 334;
@@ -41,12 +39,9 @@ const STANDARD_END_ID = 3333;
 const SE_REWARD_LABEL = "10,000";
 const STANDARD_REWARD_LABEL = "3,000";
 
-// Minimal ABIs expected from the claim contracts
 const LEADERBOARD_CLAIM_ABI = [
   "function claimsActive() view returns (bool)",
   "function startTime() view returns (uint256)",
-  "function vestingDuration() view returns (uint256)",
-  "function claimCooldown() view returns (uint256)",
   "function allocation(address user) view returns (uint256)",
   "function claimed(address user) view returns (uint256)",
   "function lastClaim(address user) view returns (uint256)",
@@ -106,7 +101,9 @@ function formatTokenAmount(value?: ethers.BigNumber | null) {
   const formatted = ethers.utils.formatUnits(value, TBAG_DECIMALS);
   const [whole, decimals = ""] = formatted.split(".");
   const trimmedDecimals = decimals.slice(0, 2).replace(/0+$/, "");
-  return trimmedDecimals ? `${Number(whole).toLocaleString()}.${trimmedDecimals}` : Number(whole).toLocaleString();
+  return trimmedDecimals
+    ? `${Number(whole).toLocaleString()}.${trimmedDecimals}`
+    : Number(whole).toLocaleString();
 }
 
 function shortAddress(address: string) {
@@ -129,29 +126,27 @@ function formatCountdown(targetSeconds: number) {
 }
 
 function rewardLabelForTokenId(tokenId: number) {
-  if (tokenId >= SE_START_ID && tokenId <= SE_END_ID) return `${SE_REWARD_LABEL} TBAG`;
-  if (tokenId >= STANDARD_START_ID && tokenId <= STANDARD_END_ID) return `${STANDARD_REWARD_LABEL} TBAG`;
+  if (tokenId >= SE_START_ID && tokenId <= SE_END_ID)
+    return `${SE_REWARD_LABEL} TBAG`;
+  if (tokenId >= STANDARD_START_ID && tokenId <= STANDARD_END_ID)
+    return `${STANDARD_REWARD_LABEL} TBAG`;
   return "Not eligible";
 }
 
 export default function Home() {
-  // --------------------------------------------------
-  // Wallet / network
-  // --------------------------------------------------
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [autoConnectEnabled, setAutoConnectEnabled] = useState(true);
 
   const numericChainId = useMemo(() => {
     if (!chainId) return null;
-    return chainId.startsWith("0x") ? parseInt(chainId, 16) : parseInt(chainId, 10);
+    return chainId.startsWith("0x")
+      ? parseInt(chainId, 16)
+      : parseInt(chainId, 10);
   }, [chainId]);
 
   const isOnTargetNetwork = numericChainId === TARGET_CHAIN_ID_DEC;
 
-  // --------------------------------------------------
-  // UI state
-  // --------------------------------------------------
   const [activeTab, setActiveTab] = useState<ActiveTab>("main");
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isClaimingMain, setIsClaimingMain] = useState(false);
@@ -167,9 +162,6 @@ export default function Home() {
   const [searchedTokenStatus, setSearchedTokenStatus] = useState<string | null>(null);
   const [isSearchingToken, setIsSearchingToken] = useState(false);
 
-  // --------------------------------------------------
-  // Providers / contracts
-  // --------------------------------------------------
   const getProvider = () => {
     if (typeof window === "undefined" || !window.ethereum) return null;
     return new ethers.providers.Web3Provider(window.ethereum);
@@ -183,19 +175,30 @@ export default function Home() {
 
   const getLeaderboardContract = (withSigner = false) => {
     const providerOrSigner = withSigner ? getSigner() : getProvider();
-    if (!providerOrSigner || !LEADERBOARD_CLAIM_ADDRESS) return null;
-    return new ethers.Contract(LEADERBOARD_CLAIM_ADDRESS, LEADERBOARD_CLAIM_ABI, providerOrSigner);
+
+    if (!providerOrSigner) return null;
+    if (!LEADERBOARD_CLAIM_ADDRESS) return null;
+
+    return new ethers.Contract(
+      String(LEADERBOARD_CLAIM_ADDRESS),
+      LEADERBOARD_CLAIM_ABI,
+      providerOrSigner
+    );
   };
 
   const getNFTClaimContract = (withSigner = false) => {
     const providerOrSigner = withSigner ? getSigner() : getProvider();
-    if (!providerOrSigner || !NFT_CLAIM_ADDRESS) return null;
-    return new ethers.Contract(NFT_CLAIM_ADDRESS, NFT_CLAIM_ABI, providerOrSigner);
+
+    if (!providerOrSigner) return null;
+    if (!NFT_CLAIM_ADDRESS) return null;
+
+    return new ethers.Contract(
+      String(NFT_CLAIM_ADDRESS),
+      NFT_CLAIM_ABI,
+      providerOrSigner
+    );
   };
 
-  // --------------------------------------------------
-  // Wallet actions
-  // --------------------------------------------------
   const connectWallet = async () => {
     try {
       setErrorMessage(null);
@@ -206,7 +209,10 @@ export default function Home() {
         return;
       }
 
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+
       const selected = accounts[0];
 
       setWalletAddress(selected);
@@ -263,7 +269,11 @@ export default function Home() {
               {
                 chainId: TARGET_CHAIN_ID_HEX,
                 chainName: TARGET_NETWORK_LABEL,
-                nativeCurrency: { name: "Linea ETH", symbol: "ETH", decimals: 18 },
+                nativeCurrency: {
+                  name: "Linea ETH",
+                  symbol: "ETH",
+                  decimals: 18,
+                },
                 rpcUrls: ["https://rpc.linea.build"],
                 blockExplorerUrls: ["https://lineascan.build"],
               },
@@ -294,9 +304,6 @@ export default function Home() {
     }
   };
 
-  // --------------------------------------------------
-  // Data loading
-  // --------------------------------------------------
   const loadMainClaimData = async (address: string) => {
     if (!LEADERBOARD_CLAIM_ADDRESS) {
       setMainClaimData(null);
@@ -339,14 +346,19 @@ export default function Home() {
     const provider = getProvider();
     if (!provider) return [];
 
-    const nft = new ethers.Contract(NFT_COLLECTION_ADDRESS, ERC721_ENUMERABLE_ABI, provider);
+    const nft = new ethers.Contract(
+      String(NFT_COLLECTION_ADDRESS),
+      ERC721_ENUMERABLE_ABI,
+      provider
+    );
 
-    // This assumes the NFT contract supports ERC721Enumerable.
-    // If it does not, replace this function with Alchemy NFT API lookup.
     const balanceBn = await nft.balanceOf(address);
     const balance = Number(balanceBn);
 
-    const calls = Array.from({ length: balance }, (_, index) => nft.tokenOfOwnerByIndex(address, index));
+    const calls = Array.from({ length: balance }, (_, index) =>
+      nft.tokenOfOwnerByIndex(address, index)
+    );
+
     const ids = await Promise.all(calls);
 
     return ids.map((id) => Number(id)).sort((a, b) => a - b);
@@ -398,7 +410,10 @@ export default function Home() {
       setIsLoadingData(true);
       setErrorMessage(null);
 
-      await Promise.all([loadMainClaimData(address), loadNFTClaimData(address)]);
+      await Promise.all([
+        loadMainClaimData(address),
+        loadNFTClaimData(address),
+      ]);
     } catch (err) {
       console.error("Error loading claim data:", err);
       setErrorMessage("Error loading claim data. Check network and contract addresses.");
@@ -407,9 +422,38 @@ export default function Home() {
     }
   };
 
-  // --------------------------------------------------
-  // Claim actions
-  // --------------------------------------------------
+  const handleClaimError = (err: any, fallback: string) => {
+    const rawMsg =
+      err?.error?.message ||
+      err?.data?.message ||
+      err?.reason ||
+      err?.message ||
+      String(err ?? "");
+
+    const lower = rawMsg.toLowerCase();
+
+    if (err?.code === "ACTION_REJECTED" || lower.includes("user rejected")) {
+      setErrorMessage("Transaction rejected in wallet.");
+    } else if (lower.includes("paused") || lower.includes("not active")) {
+      setErrorMessage("Claims are not active right now.");
+    } else if (
+      lower.includes("nothing") ||
+      lower.includes("zero") ||
+      lower.includes("no tokens")
+    ) {
+      setErrorMessage("There is nothing claimable right now.");
+    } else if (lower.includes("cooldown")) {
+      setErrorMessage("You have already claimed within the current 24h cooldown window.");
+    } else if (
+      lower.includes("insufficient") ||
+      lower.includes("transfer amount exceeds balance")
+    ) {
+      setErrorMessage("The claim contract does not have enough TBAG funded yet.");
+    } else {
+      setErrorMessage(fallback);
+    }
+  };
+
   const handleMainClaim = async () => {
     try {
       setErrorMessage(null);
@@ -417,12 +461,9 @@ export default function Home() {
 
       if (!walletAddress) return connectWallet();
       if (!isOnTargetNetwork) return switchToTargetNetwork();
-      if (!LEADERBOARD_CLAIM_ADDRESS) {
-        setErrorMessage("Main claim contract address is not configured yet.");
-        return;
-      }
 
       setIsClaimingMain(true);
+
       const contract = getLeaderboardContract(true);
       if (!contract) throw new Error("Leaderboard contract unavailable");
 
@@ -431,6 +472,7 @@ export default function Home() {
 
       setSuccessMessage("Main claim successful. TBAG secured.");
       setShowConfirmModal(null);
+
       await loadAllClaimData(walletAddress);
     } catch (err: any) {
       console.error("Main claim error:", err);
@@ -447,16 +489,19 @@ export default function Home() {
 
       if (!walletAddress) return connectWallet();
       if (!isOnTargetNetwork) return switchToTargetNetwork();
+
       if (!NFT_CLAIM_ADDRESS) {
         setErrorMessage("Baggiez claim contract address is not configured yet.");
         return;
       }
+
       if (!nftClaimData || nftClaimData.eligibleTokenIds.length === 0) {
         setErrorMessage("No eligible Baggiez NFTs to claim for this phase.");
         return;
       }
 
       setIsClaimingNFT(true);
+
       const contract = getNFTClaimContract(true);
       if (!contract) throw new Error("NFT claim contract unavailable");
 
@@ -465,6 +510,7 @@ export default function Home() {
 
       setSuccessMessage("Baggiez claim successful. TBAG secured.");
       setShowConfirmModal(null);
+
       await loadAllClaimData(walletAddress);
     } catch (err: any) {
       console.error("NFT claim error:", err);
@@ -474,29 +520,6 @@ export default function Home() {
     }
   };
 
-  const handleClaimError = (err: any, fallback: string) => {
-    const rawMsg =
-      err?.error?.message || err?.data?.message || err?.reason || err?.message || String(err ?? "");
-    const lower = rawMsg.toLowerCase();
-
-    if (err?.code === "ACTION_REJECTED" || lower.includes("user rejected")) {
-      setErrorMessage("Transaction rejected in wallet.");
-    } else if (lower.includes("paused") || lower.includes("not active")) {
-      setErrorMessage("Claims are not active right now.");
-    } else if (lower.includes("nothing") || lower.includes("zero") || lower.includes("no tokens")) {
-      setErrorMessage("There is nothing claimable right now.");
-    } else if (lower.includes("cooldown")) {
-      setErrorMessage("You have already claimed within the current 24h cooldown window.");
-    } else if (lower.includes("insufficient") || lower.includes("transfer amount exceeds balance")) {
-      setErrorMessage("The claim contract does not have enough TBAG funded yet.");
-    } else {
-      setErrorMessage(fallback);
-    }
-  };
-
-  // --------------------------------------------------
-  // NFT search
-  // --------------------------------------------------
   const searchTokenStatus = async () => {
     try {
       setErrorMessage(null);
@@ -509,6 +532,7 @@ export default function Home() {
       }
 
       const tokenId = Number(searchedTokenId);
+
       if (!Number.isInteger(tokenId) || tokenId < 0) {
         setSearchedTokenStatus("Enter a valid NFT token ID.");
         return;
@@ -525,9 +549,13 @@ export default function Home() {
       if (rewardLabel === "Not eligible") {
         setSearchedTokenStatus(`NFT #${tokenId} is not eligible for TBAG claims.`);
       } else if (alreadyClaimed) {
-        setSearchedTokenStatus(`NFT #${tokenId} has already claimed in Phase ${phase}. Reward tier: ${rewardLabel}.`);
+        setSearchedTokenStatus(
+          `NFT #${tokenId} has already claimed in Phase ${phase}. Reward tier: ${rewardLabel}.`
+        );
       } else {
-        setSearchedTokenStatus(`NFT #${tokenId} has NOT claimed in Phase ${phase}. Reward tier: ${rewardLabel}.`);
+        setSearchedTokenStatus(
+          `NFT #${tokenId} has NOT claimed in Phase ${phase}. Reward tier: ${rewardLabel}.`
+        );
       }
     } catch (err) {
       console.error("NFT search error:", err);
@@ -537,9 +565,6 @@ export default function Home() {
     }
   };
 
-  // --------------------------------------------------
-  // Effects
-  // --------------------------------------------------
   useEffect(() => {
     if (typeof window === "undefined" || !window.ethereum) return;
 
@@ -587,9 +612,6 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletAddress, autoConnectEnabled]);
 
-  // --------------------------------------------------
-  // Derived labels
-  // --------------------------------------------------
   const mainButtonLabel = (() => {
     if (!walletAddress) return "Connect Wallet";
     if (!isOnTargetNetwork) return `Switch to ${TARGET_NETWORK_LABEL}`;
@@ -597,7 +619,10 @@ export default function Home() {
     if (isClaimingMain) return "Claiming...";
     if (!mainClaimData?.claimsActive) return "Claims Not Active";
     if (!mainClaimData.claimableAmount.gt(0)) return "Nothing Claimable";
-    if (mainClaimData.nextClaimTime && formatCountdown(mainClaimData.nextClaimTime) !== "Claim Now") {
+    if (
+      mainClaimData.nextClaimTime &&
+      formatCountdown(mainClaimData.nextClaimTime) !== "Claim Now"
+    ) {
       return "Cooldown Active";
     }
     return "Claim TBAG";
@@ -621,7 +646,9 @@ export default function Home() {
     !LEADERBOARD_CLAIM_ADDRESS ||
     !mainClaimData?.claimsActive ||
     !mainClaimData?.claimableAmount.gt(0) ||
-    (mainClaimData?.nextClaimTime ? formatCountdown(mainClaimData.nextClaimTime) !== "Claim Now" : false);
+    (mainClaimData?.nextClaimTime
+      ? formatCountdown(mainClaimData.nextClaimTime) !== "Claim Now"
+      : false);
 
   const nftClaimDisabled =
     isClaimingNFT ||
@@ -649,15 +676,20 @@ export default function Home() {
             <span className={`status-pill ${isOnTargetNetwork ? "ok" : "bad"}`}>
               {isOnTargetNetwork ? TARGET_NETWORK_LABEL : "Wrong Network"}
             </span>
+
             <div className="status-right">
               <span className="status-address">
-                {walletAddress ? `Connected: ${shortAddress(walletAddress)}` : "Not connected"}
+                {walletAddress
+                  ? `Connected: ${shortAddress(walletAddress)}`
+                  : "Not connected"}
               </span>
+
               {walletAddress && (
                 <button className="tiny-btn" type="button" onClick={disconnectWallet}>
                   Disconnect
                 </button>
               )}
+
               {walletAddress && !isOnTargetNetwork && (
                 <button className="tiny-btn" type="button" onClick={switchToTargetNetwork}>
                   Switch Network
@@ -668,10 +700,17 @@ export default function Home() {
 
           <div className="tab-header-row">
             <div className="tabs-row">
-              <button className={`tab-btn ${activeTab === "main" ? "active" : ""}`} onClick={() => setActiveTab("main")}>
+              <button
+                className={`tab-btn ${activeTab === "main" ? "active" : ""}`}
+                onClick={() => setActiveTab("main")}
+              >
                 Main Claims
               </button>
-              <button className={`tab-btn ${activeTab === "baggiez" ? "active" : ""}`} onClick={() => setActiveTab("baggiez")}>
+
+              <button
+                className={`tab-btn ${activeTab === "baggiez" ? "active" : ""}`}
+                onClick={() => setActiveTab("baggiez")}
+              >
                 Baggiez Claims
               </button>
             </div>
@@ -682,21 +721,38 @@ export default function Home() {
               <div className="info-grid two">
                 <div className="info-box">
                   <span className="label">Total Claim Amount</span>
-                  <span className="value">{walletAddress ? `${formatTokenAmount(mainClaimData?.totalAllocation)} TBAG` : "-"}</span>
+                  <span className="value">
+                    {walletAddress
+                      ? `${formatTokenAmount(mainClaimData?.totalAllocation)} TBAG`
+                      : "-"}
+                  </span>
                 </div>
+
                 <div className="info-box">
                   <span className="label">Already Claimed</span>
-                  <span className="value">{walletAddress ? `${formatTokenAmount(mainClaimData?.claimedAmount)} TBAG` : "-"}</span>
+                  <span className="value">
+                    {walletAddress
+                      ? `${formatTokenAmount(mainClaimData?.claimedAmount)} TBAG`
+                      : "-"}
+                  </span>
                 </div>
+
                 <div className="info-box">
                   <span className="label">Claimable Now</span>
-                  <span className="value">{walletAddress ? `${formatTokenAmount(mainClaimData?.claimableAmount)} TBAG` : "-"}</span>
+                  <span className="value">
+                    {walletAddress
+                      ? `${formatTokenAmount(mainClaimData?.claimableAmount)} TBAG`
+                      : "-"}
+                  </span>
                 </div>
+
                 <div className="info-box">
                   <span className="label">Left To Claim</span>
                   <span className="value">
                     {walletAddress && mainClaimData
-                      ? `${formatTokenAmount(mainClaimData.totalAllocation.sub(mainClaimData.claimedAmount))} TBAG`
+                      ? `${formatTokenAmount(
+                          mainClaimData.totalAllocation.sub(mainClaimData.claimedAmount)
+                        )} TBAG`
                       : "-"}
                   </span>
                 </div>
@@ -706,7 +762,9 @@ export default function Home() {
                 <div className="info-box">
                   <span className="label">Next Claim</span>
                   <span className="value">
-                    {walletAddress && mainClaimData ? formatCountdown(mainClaimData.nextClaimTime) : "-"}
+                    {walletAddress && mainClaimData
+                      ? formatCountdown(mainClaimData.nextClaimTime)
+                      : "-"}
                   </span>
                 </div>
               </div>
@@ -737,25 +795,39 @@ export default function Home() {
                 <div className="info-box">
                   <span className="label">Current Phase</span>
                   <span className="value">
-                    {nftClaimData ? `${nftClaimData.currentPhase} / ${nftClaimData.totalPhases}` : "-"}
+                    {nftClaimData
+                      ? `${nftClaimData.currentPhase} / ${nftClaimData.totalPhases}`
+                      : "-"}
                   </span>
                 </div>
+
                 <div className="info-box">
                   <span className="label">NFTs Owned</span>
-                  <span className="value">{walletAddress ? nftClaimData?.ownedTokenIds.length ?? "-" : "-"}</span>
+                  <span className="value">
+                    {walletAddress ? nftClaimData?.ownedTokenIds.length ?? "-" : "-"}
+                  </span>
                 </div>
+
                 <div className="info-box">
                   <span className="label">Eligible This Phase</span>
-                  <span className="value">{walletAddress ? nftClaimData?.eligibleCount ?? "-" : "-"}</span>
+                  <span className="value">
+                    {walletAddress ? nftClaimData?.eligibleCount ?? "-" : "-"}
+                  </span>
                 </div>
+
                 <div className="info-box">
                   <span className="label">Claimable TBAG</span>
-                  <span className="value">{walletAddress ? `${formatTokenAmount(nftClaimData?.claimableAmount)} TBAG` : "-"}</span>
+                  <span className="value">
+                    {walletAddress
+                      ? `${formatTokenAmount(nftClaimData?.claimableAmount)} TBAG`
+                      : "-"}
+                  </span>
                 </div>
               </div>
 
               <div className="nft-search-box">
                 <span className="label">Search NFT Claim Status</span>
+
                 <div className="search-row">
                   <input
                     value={searchedTokenId}
@@ -763,11 +835,20 @@ export default function Home() {
                     placeholder="Enter NFT ID"
                     inputMode="numeric"
                   />
-                  <button className="secondary-btn" type="button" onClick={searchTokenStatus} disabled={isSearchingToken}>
+
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={searchTokenStatus}
+                    disabled={isSearchingToken}
+                  >
                     {isSearchingToken ? "Checking..." : "Search"}
                   </button>
                 </div>
-                {searchedTokenStatus && <p className="search-result">{searchedTokenStatus}</p>}
+
+                {searchedTokenStatus && (
+                  <p className="search-result">{searchedTokenStatus}</p>
+                )}
               </div>
 
               <div className="actions-row">
@@ -800,27 +881,52 @@ export default function Home() {
             <span className="label">Claim Rules</span>
             <span className="leaderboard-sub">Linea Mainnet</span>
           </div>
+
           <div className="rules-list">
-            <p><strong>Main Claims:</strong> 90-day linear vesting, claimable once every 24 hours.</p>
-            <p><strong>Baggiez SE:</strong> NFT IDs {SE_START_ID}–{SE_END_ID} receive {SE_REWARD_LABEL} TBAG total.</p>
-            <p><strong>Baggiez Standard:</strong> NFT IDs {STANDARD_START_ID}–{STANDARD_END_ID} receive {STANDARD_REWARD_LABEL} TBAG total.</p>
-            <p><strong>NFT Phases:</strong> 4 manual claim phases, 25% per phase. Missed phases expire.</p>
+            <p>
+              <strong>Main Claims:</strong> 90-day linear vesting, claimable once every 24 hours.
+            </p>
+            <p>
+              <strong>Baggiez SE:</strong> NFT IDs {SE_START_ID}–{SE_END_ID} receive {SE_REWARD_LABEL} TBAG total.
+            </p>
+            <p>
+              <strong>Baggiez Standard:</strong> NFT IDs {STANDARD_START_ID}–{STANDARD_END_ID} receive {STANDARD_REWARD_LABEL} TBAG total.
+            </p>
+            <p>
+              <strong>NFT Phases:</strong> 4 manual claim phases, 25% per phase. Missed phases expire.
+            </p>
           </div>
         </div>
 
         {showConfirmModal && (
           <div className="modal-backdrop">
             <div className="modal-card">
-              <h2>{showConfirmModal === "main" ? "Confirm Main Claim" : "Confirm Baggiez Claim"}</h2>
+              <h2>
+                {showConfirmModal === "main"
+                  ? "Confirm Main Claim"
+                  : "Confirm Baggiez Claim"}
+              </h2>
+
               <p className="modal-body">
                 {showConfirmModal === "main"
-                  ? `You are about to claim ${formatTokenAmount(mainClaimData?.claimableAmount)} TBAG from your vested leaderboard allocation.`
-                  : `You are about to claim ${formatTokenAmount(nftClaimData?.claimableAmount)} TBAG for all currently eligible Baggiez NFTs in your wallet.`}
+                  ? `You are about to claim ${formatTokenAmount(
+                      mainClaimData?.claimableAmount
+                    )} TBAG from your vested leaderboard allocation.`
+                  : `You are about to claim ${formatTokenAmount(
+                      nftClaimData?.claimableAmount
+                    )} TBAG for all currently eligible Baggiez NFTs in your wallet.`}
               </p>
+
               <div className="modal-actions">
-                <button type="button" className="secondary-btn" onClick={() => setShowConfirmModal(null)} disabled={isClaimingMain || isClaimingNFT}>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setShowConfirmModal(null)}
+                  disabled={isClaimingMain || isClaimingNFT}
+                >
                   Cancel
                 </button>
+
                 <button
                   type="button"
                   className="primary-btn"
