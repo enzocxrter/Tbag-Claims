@@ -353,10 +353,12 @@ export default function Home() {
     }
 
     const allTokenIds: number[] = [];
-    let pageKey: string | undefined = undefined;
+    let pageKey: string = "";
 
     do {
-      const pageKeyParam = pageKey ? `&pageKey=${pageKey}` : "";
+      const pageKeyParam: string = pageKey
+        ? `&pageKey=${encodeURIComponent(pageKey)}`
+        : "";
 
       const url =
         `https://linea-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner` +
@@ -372,7 +374,7 @@ export default function Home() {
         throw new Error(`Alchemy NFT API error: ${res.status}`);
       }
 
-      const data = await res.json();
+      const data: any = await res.json();
 
       const ownedNfts = Array.isArray(data.ownedNfts) ? data.ownedNfts : [];
 
@@ -396,7 +398,7 @@ export default function Home() {
 
       allTokenIds.push(...(ids as number[]));
 
-      pageKey = data.pageKey;
+      pageKey = typeof data.pageKey === "string" ? data.pageKey : "";
     } while (pageKey);
 
     return Array.from(new Set(allTokenIds)).sort((a, b) => a - b);
@@ -454,7 +456,9 @@ export default function Home() {
       ]);
     } catch (err) {
       console.error("Error loading claim data:", err);
-      setErrorMessage("Error loading claim data. Check network, contract addresses, and Alchemy API key.");
+      setErrorMessage(
+        "Error loading claim data. Check network, contract addresses, and Alchemy API key."
+      );
     } finally {
       setIsLoadingData(false);
     }
